@@ -5,7 +5,7 @@ WORKDIR /app/src
 
 RUN \
   set -ex && \
-  git clone https://github.com/axelor/abs-webapp.git axelor-erp && \
+  git clone https://github.com/axelor/open-suite-webapp.git axelor-erp && \
   sed -e 's|git@github.com:|https://github.com/|' -i axelor-erp/.gitmodules && \
   cd axelor-erp && \
   git checkout master && \
@@ -14,7 +14,7 @@ RUN \
   git submodule update && \
   git submodule foreach git checkout master && \
   git submodule foreach git pull origin master && \
-  sed -e 's|^application.theme.*|application.theme = modern|g' -i src/main/resources/application.properties && \
+  sed -e 's|^application.theme.*|application.theme = modern|g' -i src/main/resources/axelor-config.properties && \
   ./gradlew --no-daemon -x test npm-build build
 
 FROM axelor/aio-base
