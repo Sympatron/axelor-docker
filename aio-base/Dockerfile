@@ -1,10 +1,10 @@
-FROM adoptopenjdk/openjdk8 as builder
+FROM adoptopenjdk/openjdk12 as builder
 
 RUN set -ex \
 	&& DEBIAN_FRONTEND=noninteractive apt-get update \
 	&& DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y \
-		curl dpkg-dev gcc libapr1-dev libssl-dev make \
+	curl dpkg-dev gcc libapr1-dev libssl-dev make \
 	&& rm -rf /var/lib/apt/lists/*
 
 # jdk
@@ -15,18 +15,18 @@ ENV CATALINA_HOME /usr/local/tomcat
 ENV CATALINA_BASE /var/lib/tomcat
 
 RUN set -ex \
-	&& export TOMCAT_MAJOR="8" \
-	&& export TOMCAT_VERSION="8.5.38" \
-	&& export TOMCAT_ESUM="3a3e624014faf87091e6dbb8bad13c68240955d62301d22cf3d75a1766859dd97500d6850fbd5d3dc012f08f9301eb24c24fa7175bcca616767fa5c18875072d" \
+	&& export TOMCAT_MAJOR="9" \
+	&& export TOMCAT_VERSION="9.0.55" \
+	&& export TOMCAT_ESUM="a0c480b8bba09069bda3b57f54e658450a59d799474ad587dead0ffbf5074c16ee3f9f9c13312d0ff3227c7034589dabf25941fbd672838e9baeee9661e024dc" \
 	&& export TOMCAT_PKG="apache-tomcat-$TOMCAT_VERSION.tar.gz" \
 	&& mkdir -p $CATALINA_HOME \
 	&& mkdir -p $CATALINA_BASE \
 	&& cd $CATALINA_HOME \
-	&& curl -L -O "https://www.apache.org/dyn/closer.cgi?action=download&filename=tomcat/tomcat-$TOMCAT_MAJOR/v$TOMCAT_VERSION/bin/$TOMCAT_PKG" \
+	&& curl -L -O "https://archive.apache.org/dist/tomcat/tomcat-$TOMCAT_MAJOR/v$TOMCAT_VERSION/bin/$TOMCAT_PKG" \
 	&& echo "$TOMCAT_ESUM $TOMCAT_PKG" | sha512sum -c - \
 	&& tar -xvf $TOMCAT_PKG --strip-components=1 \
+	&& rm -f $CATALINA_HOME/bin/*.bat \
 	&& rm -f $TOMCAT_PKG \
-	&& rm -f $TOMCAT_HOME/bin/*.bat \
 	&& chmod 755 $CATALINA_HOME/bin \
 	&& chmod 755 $CATALINA_HOME/lib \
 	&& chmod 755 $CATALINA_HOME/conf \
@@ -55,12 +55,12 @@ RUN set -ex \
 	&& tar -xvf $CATALINA_HOME/bin/tomcat-native.tar.gz -C "$NATIVE_BUILD_DIR" --strip-components=1 \
 	&& cd $NATIVE_BUILD_DIR/native \
 	&& ./configure \
-		--build="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
-		--libdir="$TOMCAT_NATIVE_LIBDIR" \
-		--prefix="$CATALINA_HOME" \
-		--with-apr="$(which apr-1-config)" \
-		--with-java-home="$JAVA_HOME" \
-		--with-ssl=yes \
+	--build="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+	--libdir="$TOMCAT_NATIVE_LIBDIR" \
+	--prefix="$CATALINA_HOME" \
+	--with-apr="$(which apr-1-config)" \
+	--with-java-home="$JAVA_HOME" \
+	--with-ssl=yes \
 	&& make -j "$(nproc)" \
 	&& make install \
 	&& rm -f $CATALINA_HOME/bin/*.bat \
@@ -69,28 +69,46 @@ RUN set -ex \
 
 ## end of builder stage
 
-FROM adoptopenjdk/openjdk8
+FROM adoptopenjdk/openjdk12
 LABEL maintainer="Axelor <support@axelor.com>"
 
 RUN set -ex \
 	&& DEBIAN_FRONTEND=noninteractive apt-get update \
-	&& DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
-	&& DEBIAN_FRONTEND=noninteractive apt-get install -y gnupg dirmngr apt-transport-https locales \
-	&& apt-key adv --batch --fetch-keys http://nginx.org/keys/nginx_signing.key \
-	&& echo "deb http://nginx.org/packages/mainline/ubuntu/ bionic nginx" >> /etc/apt/sources.list \
-	&& apt-key adv --batch --fetch-keys https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-	&& echo 'deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
-	&& apt-key adv --batch --fetch-keys https://deb.nodesource.com/gpgkey/nodesource.gpg.key \
-	&& echo 'deb https://deb.nodesource.com/node_8.x bionic main' > /etc/apt/sources.list.d/nodesource.list \
-	&& apt-key adv --batch --fetch-keys https://dl.yarnpkg.com/debian/pubkey.gpg \
-	&& echo 'deb https://dl.yarnpkg.com/debian/ stable main' > /etc/apt/sources.list.d/yarn.list \
+	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+	gnupg \
+	dirmngr \
+	apt-transport-https \
+	locales \
+	ca-certificates \
+	curl \
+	&& curl -fsSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/nodesource.gpg \
+	&& echo "deb [signed-by=/etc/apt/trusted.gpg.d/nodesource.gpg] https://deb.nodesource.com/node_20.x buster main" > /etc/apt/sources.list.d/nodesource.list \
+	&& curl -fsSL http://nginx.org/keys/nginx_signing.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/nginx.gpg \
+	&& echo "deb [signed-by=/etc/apt/trusted.gpg.d/nginx.gpg] http://nginx.org/packages/mainline/ubuntu/ bionic nginx" >> /etc/apt/sources.list \
+	&& curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg \
+	&& echo "deb [signed-by=/etc/apt/trusted.gpg.d/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+	&& curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/yarn.gpg \
+	&& echo "deb [signed-by=/etc/apt/trusted.gpg.d/yarn.gpg] https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list \
+	&& echo 'deb [trusted=yes] http://deb.debian.org/debian/ buster main' >> /etc/apt/sources.list \
 	&& DEBIAN_FRONTEND=noninteractive apt-get update \
-	&& DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
-	&& DEBIAN_FRONTEND=noninteractive apt-get install -y \
-		supervisor gosu postgresql-9.6 postgresql-contrib-9.6 \
-		libapr1 nginx nginx-module-xslt nginx-module-geoip nginx-module-image-filter nginx-module-njs gettext-base \
-		git-core nodejs yarn \
-	&& rm -rf /var/lib/apt/lists/*
+	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+	supervisor \
+	gosu \
+	postgresql-12 \
+	postgresql-contrib-12 \
+	libapr1 \
+	nginx \
+	nginx-module-xslt \
+	nginx-module-geoip \
+	nginx-module-image-filter \
+	nginx-module-njs \
+	gettext-base \
+	git-core \
+	nodejs \
+	yarn \
+	libreadline7 \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& apt-get clean
 
 # update locale
 RUN set -ex && \
@@ -115,8 +133,8 @@ COPY --from=builder $CATALINA_BASE $CATALINA_BASE
 RUN set -ex \
 	&& addgroup --system "$TOMCAT_GROUP" --quiet \
 	&& adduser \
-		--system --home "$CATALINA_BASE" --no-create-home \
-		--ingroup "$TOMCAT_GROUP" --disabled-password --shell /bin/false "$TOMCAT_USER"
+	--system --home "$CATALINA_BASE" --no-create-home \
+	--ingroup "$TOMCAT_GROUP" --disabled-password --shell /bin/false "$TOMCAT_USER"
 
 RUN set -ex \
 	&& update-alternatives --install /usr/bin/java java $JAVA_HOME/bin/java 20000 \
@@ -131,21 +149,22 @@ RUN set -ex \
 	&& chown -R $TOMCAT_USER:$TOMCAT_GROUP /var/log/tomcat
 
 # tomcat-native lib path
-ENV LD_LIBRARY_PATH ${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$CATALINA_HOME/native-jni-lib
+ENV TOMCAT_NATIVE_LIBDIR $CATALINA_HOME/native-jni-lib
+ENV LD_LIBRARY_PATH ${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$TOMCAT_NATIVE_LIBDIR
 
 # postgres
 ENV POSTGRES_USER axelor
 ENV POSTGRES_PASSWORD axelor
 ENV POSTGRES_DB axelor
 
-ENV PATH $PATH:/usr/lib/postgresql/9.6/bin
-ENV PGDATA /var/lib/postgresql/9.6/main
+ENV PATH $PATH:/usr/lib/postgresql/12/bin
+ENV PGDATA /var/lib/postgresql/12/main
 
 RUN set -ex \
-	&& echo "host all all all md5" >> /etc/postgresql/9.6/main/pg_hba.conf \
-	&& echo "listen_addresses='localhost'" >> /etc/postgresql/9.6/main/postgresql.conf \
-	&& rm -rf /var/lib/postgresql/9.6/main \
-	&& mkdir -p /var/lib/postgresql/9.6 \
+	&& echo "host all all all md5" >> /etc/postgresql/12/main/pg_hba.conf \
+	&& echo "listen_addresses='localhost'" >> /etc/postgresql/12/main/postgresql.conf \
+	&& rm -rf /var/lib/postgresql/12/main \
+	&& mkdir -p /var/lib/postgresql/12 \
 	&& chown -R postgres:postgres /var/lib/postgresql
 
 # nginx
