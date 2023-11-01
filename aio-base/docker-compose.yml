@@ -1,7 +1,7 @@
 version: '3'
 services:
   axelor:
-    image: axelor/aio-base
+    image: aio-base
     build: .
     ports:
       - 80:80

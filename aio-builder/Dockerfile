@@ -4,15 +4,16 @@ LABEL maintainer="Axelor <support@axelor.com>"
 RUN set -ex \
   && DEBIAN_FRONTEND=noninteractive apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y gnupg dirmngr apt-transport-https locales \
-  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/nodesource.gpg \
-  && echo "deb [signed-by=/etc/apt/trusted.gpg.d/nodesource.gpg] https://deb.nodesource.com/node_20.x buster main" > /etc/apt/sources.list.d/nodesource.list \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y gnupg ca-certificates curl dirmngr apt-transport-https locales \
+  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/nodesource.gpg \
+  && echo "deb [signed-by=/etc/apt/trusted.gpg.d/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+  && apt-get update && apt-get install nodejs -y \
   && curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/yarn.gpg \
   && echo "deb [signed-by=/etc/apt/trusted.gpg.d/yarn.gpg] https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list \
   && DEBIAN_FRONTEND=noninteractive apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  git-core nodejs yarn \
+  git-core yarn \
   && rm -rf /var/lib/apt/lists/*
 
 # update locale
@@ -32,14 +33,14 @@ RUN set -ex \
 RUN \
   set -ex && \
   mkdir -p /app/src && cd /app/src && \
-  git clone https://github.com/axelor/axelor-open-platform.git && \
+  git clone https://github.com/sympatron/axelor-open-platform.git && \
   cd axelor-open-platform && \
   ./gradlew --no-daemon -x test build
 
 RUN \
   set -ex && \
   cd /app/src && \
-  git clone https://github.com/axelor/open-suite-webapp.git axelor-erp && \
+  git clone https://github.com/sympatron/open-suite-webapp.git axelor-erp && \
   sed -e 's|git@github.com:|https://github.com/|' -i axelor-erp/.gitmodules && \
   cd axelor-erp && \
   git checkout master && \

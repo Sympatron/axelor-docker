@@ -1,11 +1,11 @@
-FROM axelor/aio-builder as builder
+FROM aio-builder as builder
 
 RUN mkdir -p /app/src
 WORKDIR /app/src
 
 RUN \
   set -ex && \
-  git clone https://github.com/axelor/open-suite-webapp.git axelor-erp && \
+  git clone https://github.com/sympatron/open-suite-webapp.git axelor-erp && \
   sed -e 's|git@github.com:|https://github.com/|' -i axelor-erp/.gitmodules && \
   cd axelor-erp && \
   git checkout master && \
@@ -17,7 +17,7 @@ RUN \
   sed -e 's|^application.theme.*|application.theme = modern|g' -i src/main/resources/axelor-config.properties && \
   ./gradlew --no-daemon -x test npm-build build
 
-FROM axelor/aio-base
+FROM aio-base
 LABEL maintainer="Axelor <support@axelor.com>"
 
 COPY --from=builder /app/src/axelor-erp/build/libs/axelor-erp-*.war $CATALINA_BASE/webapps/ROOT.war
